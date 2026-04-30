@@ -349,3 +349,7 @@ PHP_Laravel12_Telescope_Toolbar/
 ------------------------------------------------------------------------
 
 Your PHP_Laravel12_Telescope_Toolbar Project is now ready!
+<<<<<<< HEAD
+=======
+
+>>>>>>> development

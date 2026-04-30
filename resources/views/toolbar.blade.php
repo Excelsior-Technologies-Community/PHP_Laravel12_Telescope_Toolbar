@@ -5,15 +5,27 @@
     right:0;
     background:#111;
     color:#fff;
-    padding:10px;
-    font-size:14px;
+    padding:12px;
+    font-size:13px;
     z-index:9999;
+    display:flex;
+    justify-content:space-between;
+    flex-wrap:wrap;
 ">
-    <strong>Laravel Telescope Toolbar</strong> |
+    <div>
+        <strong>🚀 Telescope Toolbar</strong> |
+        <a href="/telescope" style="color:#00ff99;">Open Telescope</a>
+    </div>
 
-    <a href="/telescope" style="color:#00ff99;">
-        Open Telescope
-    </a> |
+    <div>
+        ⏱ Time: {{ $executionTime }} ms |
+        🧠 Memory: {{ $memoryUsage }} MB |
+        📡 {{ $method }} |
+        🔗 {{ $url }} |
+        ✅ Status: {{ $status }}
+    </div>
 
-    Time: {{ now() }}
+    <div>
+        🕒 {{ $time }}
+    </div>
 </div>

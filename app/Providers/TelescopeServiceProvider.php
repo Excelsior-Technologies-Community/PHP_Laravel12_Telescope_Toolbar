@@ -62,6 +62,16 @@ class TelescopeServiceProvider extends TelescopeApplicationServiceProvider
         });
     }
 
+
+    public function boot()
+    {
+        Telescope::filter(function ($entry) {
+            return app()->environment('local') ||
+                $entry->isReportableException() ||
+                $entry->isFailedRequest() ||
+                $entry->type === 'log';
+        });
+    }
     // protected function gate(): void
     // {
     //     Gate::define('viewTelescope', function (User $user) {
@@ -71,4 +81,3 @@ class TelescopeServiceProvider extends TelescopeApplicationServiceProvider
     //     });
     // }
 }
-    
