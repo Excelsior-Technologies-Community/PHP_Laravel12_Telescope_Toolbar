@@ -5,41 +5,78 @@ namespace App\Http\Middleware;
 use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 class InjectToolbar
 {
     public function handle(Request $request, Closure $next): Response
     {
         $startTime = microtime(true);
-
         $response = $next($request);
 
-        $endTime = microtime(true);
-        $executionTime = number_format(($endTime - $startTime) * 1000, 2); // ms
-        $memoryUsage = number_format(memory_get_peak_usage(true) / 1024 / 1024, 2); // MB
+        if (!$request->acceptsHtml() || $request->is('telescope*') || $request->ajax()) {
+            return $response;
+        }
 
-        if (
-            app()->environment('local') &&
-            $response instanceof Response &&
-            str_contains($response->headers->get('Content-Type'), 'text/html')
-        ) {
-            $toolbar = view('toolbar', [
-                'time' => now(),
-                'executionTime' => $executionTime,
-                'memoryUsage' => $memoryUsage,
-                'url' => $request->fullUrl(),
-                'method' => $request->method(),
-                'status' => $response->getStatusCode(),
-            ])->render();
+        $executionTime = round((microtime(true) - $startTime) * 1000, 2);
+        $memoryUsage = round(memory_get_peak_usage(true) / 1024 / 1024, 2);
 
-            $content = $response->getContent();
+        $queriesCount = 0;
+        $duplicateQueries = 0;
+        $queriesList = [];
 
-            $content = str_replace(
-                '</body>',
-                $toolbar . '</body>',
-                $content
-            );
+        if (Schema::hasTable('telescope_entries')) {
+            $queries = DB::table('telescope_entries')
+                ->where('type', 'query')
+                ->orderBy('created_at', 'desc')
+                ->limit(30)
+                ->get();
 
+            $queriesCount = $queries->count();
+            $sqlCounts = [];
+
+            foreach ($queries as $q) {
+                $content = json_decode($q->content, true);
+                if (isset($content['sql'])) {
+                    $sql = $content['sql'];
+                    $sqlCounts[$sql] = ($sqlCounts[$sql] ?? 0) + 1;
+                    $queriesList[] = [
+                        'sql' => $sql,
+                        'time' => $content['time'] ?? 0
+                    ];
+                }
+            }
+
+            foreach ($sqlCounts as $sql => $count) {
+                if ($count > 1) {
+                    $duplicateQueries += ($count - 1);
+                }
+            }
+        }
+
+        $payload = [
+            'method' => $request->method(),
+            'url' => $request->fullUrl(),
+            'headers' => array_map(fn($h) => $h, $request->headers->all()),
+            'session' => $request->hasSession() ? $request->session()->all() : [],
+            'input' => $request->except(['_token', '_method', 'password', 'password_confirmation']),
+        ];
+
+        $toolbarHtml = view('toolbar', [
+            'time' => $executionTime,
+            'memory' => $memoryUsage,
+            'queriesCount' => $queriesCount,
+            'duplicateQueries' => $duplicateQueries,
+            'queriesList' => $queriesList,
+            'payload' => $payload
+        ])->render();
+
+        $content = $response->getContent();
+        $pos = strripos($content, '</body>');
+
+        if ($pos !== false) {
+            $content = substr($content, 0, $pos) . $toolbarHtml . substr($content, $pos);
             $response->setContent($content);
         }
 
